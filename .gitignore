@@ -19,6 +19,7 @@
 
 # BUILD
 /ruffle/
+/scripts/
 
 # MICROSOFT
 *Zone.Identifier*

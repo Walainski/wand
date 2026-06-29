@@ -1,5 +1,3 @@
-# /usr/share/nginx/legacy/media/servers.xml",
-# /usr/share/nginx/vanilla/play/servers.xml",
 <?xml version="1.0" encoding="UTF-8"?>
 <servers>
    <environment name="live">

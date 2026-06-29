@@ -1,13 +1,14 @@
 # https://github.com/solero/dash/blob/master/README.md
 
 server {
-
-    
     server_name  {{ (parseUrl .Env.WEB_VANILLA_PLAY).Host }};
-	
-
 	include /etc/nginx/conf.d/snippets/tls.conf;
 
+    location /datatech/ {
+        proxy_pass http://dash:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 
     location {{ (parseUrl .Env.WEB_VANILLA_PLAY).Path }}/ {
         root   /usr/share/nginx/vanilla/play/;
