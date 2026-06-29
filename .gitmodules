@@ -3,7 +3,7 @@
 	url = https://github.com/solero/houdini
 [submodule "dash"]
 	path = dash
-	url = https://github.com/solero/dash
+	url = https://github.com/Walainski/dash.git
 [submodule "vanilla-media"]
 	path = vanilla-media
 	url = https://git.solero.me/solero/vanilla-media
