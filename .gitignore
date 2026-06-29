@@ -1,0 +1,24 @@
+# IDE
+# .vscode/
+.idea/
+.obsidian/
+.claude/
+
+# DOTENV
+.env
+
+# DATABASE
+/.data/
+
+# MEDIA
+/vanilla-media/
+/legacy-media/
+/parts/
+*.tar.gz.enc
+/www/
+
+# BUILD
+/ruffle/
+
+# MICROSOFT
+*Zone.Identifier*

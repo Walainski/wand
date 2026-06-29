@@ -1,0 +1,19 @@
+# web/entrypoint.sh
+{{ if eq .Env.TLS_ENABLED "True" }}
+
+listen 443 ssl;
+
+{{ $keys := default "/etc/nginx/ssl" .Env.SSL_KEYS_DIR  }}
+{{ $cert := default "cert.pem"       .Env.CERT_FILE_PEM }}
+{{ $key  := default "key.pem"        .Env.KEY_FILE_PEM  }}
+
+ssl_certificate     {{$keys}}/{{$cert}};
+ssl_certificate_key {{$keys}}/{{$key}};
+
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 10m;
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers HIGH:!aNULL:!MD5;
+ssl_prefer_server_ciphers on;
+
+{{ end }}

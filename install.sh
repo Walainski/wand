@@ -1,178 +1,224 @@
 #!/bin/bash
-clear
+set -euo pipefail
 
-print_banner() {
-    echo '
- __          __     _   _ _____  
- \ \        / /\   | \ | |  __ \ 
-  \ \  /\  / /  \  |  \| | |  | |
-   \ \/  \/ / /\ \ | . ` | |  | |
-    \  /\  / ____ \| |\  | |__| |
-     \/  \/_/    \_\_| \_|_____/ 
-                                    
-      Wand Installation Script
+command_exists() { command -v "$1" &>/dev/null; }
+
+assign_package_manager() {
+    case "$(uname)" in
+        Darwin) PACKAGE_MANAGER=brew ;;
+        Linux)
+            if   command_exists apt;    then PACKAGE_MANAGER=apt
+            elif command_exists dnf;    then PACKAGE_MANAGER=dnf
+            elif command_exists yum;    then PACKAGE_MANAGER=yum
+            elif command_exists pacman; then PACKAGE_MANAGER=pacman
+            else echo "$(uname -srm) is unsupported" >&2; exit 1
+            fi ;;
+        *) echo "$(uname) is unsupported" >&2; exit 1 ;;
+    esac
+}
+assign_package_manager
+
+assign_install_cmd() {
+    case "$PACKAGE_MANAGER" in
+        brew)   INSTALL_CMD=(brew install) ;;
+        pacman) INSTALL_CMD=(sudo pacman -S --noconfirm) ;;
+        *)      INSTALL_CMD=(sudo "$PACKAGE_MANAGER" install -y) ;;
+    esac
+}
+assign_install_cmd
+
+get_package() {
+    command_exists "$1" && return
+    "${INSTALL_CMD[@]}" "$1"
+}
+
+update_package_lists() {
+    case "$PACKAGE_MANAGER" in
+        brew)       brew update ;;
+        pacman)     sudo pacman -Syu --noconfirm ;;
+        *)          sudo "$PACKAGE_MANAGER" update -y ;;
+    esac
+}
+update_package_lists
+
+get_docker() {
+    if ! command_exists docker; then 
+        case "$PACKAGE_MANAGER" in
+            pacman|brew)    get_package docker ;;
+            *)              curl -fsSL https://get.docker.com | sudo sh ;;
+        esac
+        if [ "$(uname)" != Darwin ]; then
+            sudo systemctl enable --now docker
+        fi
+    fi
+}
+
+get_package_dependencies() {
+    # ----------------------------------------------------------------------
+    if [ "$(uname)" == "Darwin" ]; then
+        if ! command_exists brew; then 
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
+    fi
+    # ----------------------------------------------------------------------
+    for pkg in git curl pv; do
+        get_package "$pkg"
+    done
+    # ----------------------------------------------------------------------
+    get_docker
+}
+get_package_dependencies
+
+initialize_submodules() {
+    # Traverse submodules // recursively update URLs in '.git/config' 
+    # with '.gitmodules' // then initialize missing submodules //
+    echo "Downloading game files..."
+    git submodule sync --recursive && \
+    git submodule update --init --recursive && \
+    echo "Finished downloading game files"
+}
+
+write_dotenv() {
+/bin/cat > .env <<- SHELL
+        ###################################################################################################
+        # DATABASE (PostgreSQL)
+        # https://github.com/solero/wand/blob/master/docker-compose.yml
+        # https://github.com/solero/houdini/blob/master/bootstrap.py
+        ###################################################################################################
+
+        POSTGRES_USER=postgres
+        POSTGRES_PASSWORD=$dbpass
+        REDIS_PASSWORD=redis
+
+        ####################################################################################################
+        # WEB (Nginx)
+        # https://github.com/jwilder/dockerize#using-templates
+        # https://github.com/solero/wand/blob/master/templates/sites/vanilla.conf.template
+        # https://github.com/solero/wand/blob/master/templates/vanilla-media/play/index.html.template
+        ####################################################################################################
+
+        WEB_PORT=80
+        HTTPS_PORT=443
+
+        WEB_HOSTNAME=$hostname
+
+        WEB_VANILLA_PLAY=http://play.$hostname
+        WEB_VANILLA_MEDIA=http://media.$hostname
+
+        WEB_LEGACY_PLAY=http://old.$hostname
+        WEB_LEGACY_MEDIA=http://legacy.$hostname
+
+        ###################################################################################################
+        # RUFFLE (cdn | self-hosted)
+        # https://github.com/ruffle-rs/ruffle/tree/master/
+        # https://github.com/Walainski/wand/blob/main/templates/vanilla-media/play/index.html.template
+        ###################################################################################################
+
+        RUFFLE_MODE=cdn
+        RUFFLE_LOG_LEVEL=info
+
+        ###################################################################################################
+        # Google reCAPTCHA
+        # https://developers.google.com/recaptcha/
+        # https://github.com/solero/dash/blob/master/config.sample.py
+        ###################################################################################################
+
+        WEB_RECAPTCHA_SITE=
+        WEB_RECAPTCHA_SECRET=
+
+        ###################################################################################################
+        # EMAIL/ACTIVATION
+        # https://github.com/solero/dash/blob/master/config.sample.py
+        ###################################################################################################
+
+        EMAIL_METHOD= # SENDGRID or SMTP or empty (auto-activate accounts)
+        EMAIL_FROM_ADDRESS=no-reply@example.com
+        EMAIL_SENDGRID_KEY=
+        EMAIL_SMTP_HOST=
+        EMAIL_SMTP_PORT=
+        EMAIL_SMTP_USER=
+        EMAIL_SMTP_PASS=
+        EMAIL_SMTP_SSL=FALSE
+
+        ###################################################################################################
+        # GAME SERVER
+        # https://github.com/solero/houdini/blob/master/bootstrap.py
+        # https://github.com/Lekuruu/houdini-websockets
+        ###################################################################################################
+
+        GAME_ADDRESS=$ipadd
+        GAME_LOGIN_PORT=6112
+        GAME_LOGIN_WEBSOCKET=7112
+        SERVER_LOG_LEVEL=info
+
+        ###################################################################################################
+        # TLS/HTTPS
+        # https://github.com/Lekuruu/houdini-websockets/blob/main/__init__.py
+        # https://github.com/Walainski/wand/blob/main/templates/vanilla-media/play/index.html.template
+        # https://github.com/Lekuruu/snowflake/blob/main/.env_example
+        ###################################################################################################
+
+        TLS_ENABLED=False
+        SSL_KEYS_DIR=/etc/nginx/ssl
+        KEY_FILE_PEM=
+        CERT_FILE_PEM=
+
+        ###################################################################################################
+        # SNOWFLAKE (CJSnow)
+        # https://github.com/Lekuruu/snowflake/blob/main/.env_example
+        ###################################################################################################
+
+        SNOWFLAKE_LOGGING_ENABLED=False
+        SNOWFLAKE_HOST=$ipadd
+        SNOWFLAKE_PORT=7002
+        SNOWFLAKE_WS_PORT=8002
+        APPLY_WINDOWMANAGER_OFFSET=True
+        ALLOW_FORCESTART_SNOW=False
+        ALLOW_FORCESTART_TUSK=False
+        MATCHMAKING_TIMEOUT=30
+SHELL
+}
+write_dotenv
+
+show_prompts() {
+    clear && echo '
+    __          __     _   _ _____
+    \ \        / /\   | \ | |  __ \
+    \ \  /\  / /  \  |  \| | |  | |
+    \ \/  \/ / /\ \ | . ` | |  | |
+        \  /\  / ____ \| |\  | |__| |
+        \/  \/_/    \_\_| \_|_____/
+
+        Wand Installation Script
     '
+
+    read -rsp "Enter password: " dbpass; echo
+    if [[ -z $dbpass ]]; then
+        dbpass=$(openssl rand -base64 12)
+        echo "$dbpass"
+        echo
+    fi
+
+    read -rp "Enter hostname: " hostname
+    if [[ -z $hostname ]]; then
+        hostname=localhost
+        echo "$hostname"
+        echo
+    fi
+
+    read -rp "Enter IP address: " ipadd
+    if [[ -z $ipadd ]]; then
+        ipadd=127.0.0.1
+        echo "$ipadd"
+        echo
+    fi
+
+    read -rp "Run the game? (y/N): " run_game
+    if [[ "$run_game" =~ ^[Yy]$ ]]; then
+        sudo docker compose up
+    fi
 }
-print_banner
-
-echo "Please answer these questions to set up the game:"
-echo "Enter password for the database (leave empty for a random password):"
-dbpass=""
-while IFS= read -r -s -n1 char; do
-    if [[ -z $char ]]; then
-        break
-    elif [[ $char == $'\177' ]]; then # handle backspace
-        if [ ${#dbpass} -gt 0 ]; then
-            dbpass="${dbpass%?}" # remove last character
-            echo -ne '\b \b' # erase last character on the screen
-        fi
-    else
-        echo -n '*'
-        dbpass+="$char"
-    fi
-done
-
-if [ -z "$dbpass" ]; then
-    dbpass=$(openssl rand -base64 12)
-fi
-
-echo "Enter the hostname for the game (example: example.com) (leave empty for localhost):"
-read hostname
-if [ -z "$hostname" ]; then
-    hostname=localhost
-fi
-
-echo "Enter your external IP address (leave empty for localhost):"
-read ipadd
-if [ -z "$ipadd" ]; then
-    ipadd=127.0.0.1
-fi
-
-read -p "Do you want to run the game when the installation ends? (y/N): " run_game
+show_prompts
 
 
-install_docker_official() {
-    echo "Installing Docker..."
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    sudo systemctl start docker
-    sudo systemctl enable docker
-}
 
-if [[ $(uname) == "Linux" ]]; then
-    echo "Setting up the environment for Linux."
-    
-    # Detect the package manager
-    if command -v apt &> /dev/null || command -v dnf &> /dev/null || command -v yum &> /dev/null; then
-        if command -v apt &> /dev/null; then
-            PKG_MANAGER="apt"
-            INSTALL_CMD="sudo apt"
-        elif command -v dnf &> /dev/null; then
-            PKG_MANAGER="dnf"
-            INSTALL_CMD="sudo dnf"
-        elif command -v yum &> /dev/null; then
-            PKG_MANAGER="yum"
-            INSTALL_CMD="sudo yum"
-        fi
-
-        echo "Detected package manager: $PKG_MANAGER"
-
-        # Update the system
-        echo "Updating system repositories..."
-        $INSTALL_CMD update 
-
-        # Install git and curl
-        echo "Installing Curl and Git..."
-        $INSTALL_CMD install -y git curl
-
-        # Install Docker using the official script supports Debian, Ubuntu, and CentOS
-        install_docker_official
-
-    # Installer for Arch because they do it a little differently over there
-    elif command -v pacman &> /dev/null; then
-        PKG_MANAGER="pacman"
-        INSTALL_CMD="sudo pacman -S --noconfirm"
-        
-        echo "Detected package manager: $PKG_MANAGER"
-
-        # Update the system
-        echo "Updating system repositories..."
-        sudo pacman -Syu --noconfirm
-        
-        # Install Docker, git, and curl
-        echo "Installing Curl and Git, Docker and Docker Compose..."
-        $INSTALL_CMD docker docker-compose git curl
-        sudo systemctl start docker
-        sudo systemctl enable docker
-    else
-        echo "This operating system isn't supported yet. Feel free to join the Discord and ask questions."
-        exit 1
-    fi
-
-    # Install Docker Compose for non-Arch systems
-    if [[ $PKG_MANAGER != "pacman" ]]; then
-        echo "Installing Docker Compose..."
-        sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-    fi
-
-elif [[ $(uname) == "Darwin" ]]; then
-    echo "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    echo "Installing Docker, git, and Docker Compose..."
-    brew install docker
-    brew install git
-    brew install docker-compose@2.20.3
-else
-    echo "This operating system isn't supported yet. Feel free to join the Discord and ask questions."
-    exit 1
-fi
-
-echo "Done setting up the environment."
-echo "Downloading Game Files"
-git clone --recurse-submodules https://github.com/solero/wand && cd wand
-echo "Done Downloading the game files."
-sudo rm -r .env
-
-echo "# Database
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=$dbpass
-
-# Web
-WEB_PORT=80
-WEB_HOSTNAME=$hostname
-
-WEB_LEGACY_PLAY=http://old.$hostname
-WEB_LEGACY_MEDIA=http://legacy.$hostname
-
-WEB_VANILLA_PLAY=http://play.$hostname
-WEB_VANILLA_MEDIA=http://media.$hostname
-
-WEB_RECAPTCHA_SITE=
-WEB_RECAPTCHA_SECRET=
-
-WEB_SENDGRID_KEY=
-
-# Game
-GAME_ADDRESS=$ipadd
-GAME_LOGIN_PORT=6112
-
-# Snowflake
-SNOWFLAKE_HOST=$ipadd
-SNOWFLAKE_PORT=7002
-
-APPLY_WINDOWMANAGER_OFFSET=False
-
-ALLOW_FORCESTART_SNOW=False
-ALLOW_FORCESTART_TUSK=True
-
-MATCHMAKING_TIMEOUT=30" > .env
-
-echo "Done!"
-
-
-if [ "$run_game" == "y" ] || [ "$run_game" == "Y" ]; then
-    sudo docker-compose up
-else
-    echo "You chose not to run the game. To run the game later, execute the command: cd wand && sudo docker-compose up"
-fi

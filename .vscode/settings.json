@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.html.template": "gohtml",
+        "*.conf.template": "nginx",
+        "*.xml.template": "xml",
+        "*.py.template": "python",
+    }
+}
