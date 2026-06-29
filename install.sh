@@ -78,108 +78,6 @@ initialize_submodules() {
     echo "Finished downloading game files"
 }
 
-write_dotenv() {
-/bin/cat > .env <<- SHELL
-        ###################################################################################################
-        # DATABASE (PostgreSQL)
-        # https://github.com/solero/wand/blob/master/docker-compose.yml
-        # https://github.com/solero/houdini/blob/master/bootstrap.py
-        ###################################################################################################
-
-        POSTGRES_USER=postgres
-        POSTGRES_PASSWORD=$dbpass
-        REDIS_PASSWORD=redis
-
-        ####################################################################################################
-        # WEB (Nginx)
-        # https://github.com/jwilder/dockerize#using-templates
-        # https://github.com/solero/wand/blob/master/templates/sites/vanilla.conf.template
-        # https://github.com/solero/wand/blob/master/templates/vanilla-media/play/index.html.template
-        ####################################################################################################
-
-        WEB_PORT=80
-        HTTPS_PORT=443
-
-        WEB_HOSTNAME=$hostname
-
-        WEB_VANILLA_PLAY=http://play.$hostname
-        WEB_VANILLA_MEDIA=http://media.$hostname
-
-        WEB_LEGACY_PLAY=http://old.$hostname
-        WEB_LEGACY_MEDIA=http://legacy.$hostname
-
-        ###################################################################################################
-        # RUFFLE (cdn | self-hosted)
-        # https://github.com/ruffle-rs/ruffle/tree/master/
-        # https://github.com/Walainski/wand/blob/main/templates/vanilla-media/play/index.html.template
-        ###################################################################################################
-
-        RUFFLE_MODE=cdn
-        RUFFLE_LOG_LEVEL=info
-
-        ###################################################################################################
-        # Google reCAPTCHA
-        # https://developers.google.com/recaptcha/
-        # https://github.com/solero/dash/blob/master/config.sample.py
-        ###################################################################################################
-
-        WEB_RECAPTCHA_SITE=
-        WEB_RECAPTCHA_SECRET=
-
-        ###################################################################################################
-        # EMAIL/ACTIVATION
-        # https://github.com/solero/dash/blob/master/config.sample.py
-        ###################################################################################################
-
-        EMAIL_METHOD= # SENDGRID or SMTP or empty (auto-activate accounts)
-        EMAIL_FROM_ADDRESS=no-reply@example.com
-        EMAIL_SENDGRID_KEY=
-        EMAIL_SMTP_HOST=
-        EMAIL_SMTP_PORT=
-        EMAIL_SMTP_USER=
-        EMAIL_SMTP_PASS=
-        EMAIL_SMTP_SSL=FALSE
-
-        ###################################################################################################
-        # GAME SERVER
-        # https://github.com/solero/houdini/blob/master/bootstrap.py
-        # https://github.com/Lekuruu/houdini-websockets
-        ###################################################################################################
-
-        GAME_ADDRESS=$ipadd
-        GAME_LOGIN_PORT=6112
-        GAME_LOGIN_WEBSOCKET=7112
-        SERVER_LOG_LEVEL=info
-
-        ###################################################################################################
-        # TLS/HTTPS
-        # https://github.com/Lekuruu/houdini-websockets/blob/main/__init__.py
-        # https://github.com/Walainski/wand/blob/main/templates/vanilla-media/play/index.html.template
-        # https://github.com/Lekuruu/snowflake/blob/main/.env_example
-        ###################################################################################################
-
-        TLS_ENABLED=False
-        SSL_KEYS_DIR=/etc/nginx/ssl
-        KEY_FILE_PEM=
-        CERT_FILE_PEM=
-
-        ###################################################################################################
-        # SNOWFLAKE (CJSnow)
-        # https://github.com/Lekuruu/snowflake/blob/main/.env_example
-        ###################################################################################################
-
-        SNOWFLAKE_LOGGING_ENABLED=False
-        SNOWFLAKE_HOST=$ipadd
-        SNOWFLAKE_PORT=7002
-        SNOWFLAKE_WS_PORT=8002
-        APPLY_WINDOWMANAGER_OFFSET=True
-        ALLOW_FORCESTART_SNOW=False
-        ALLOW_FORCESTART_TUSK=False
-        MATCHMAKING_TIMEOUT=30
-SHELL
-}
-write_dotenv
-
 show_prompts() {
     clear && echo '
     __          __     _   _ _____
@@ -192,11 +90,16 @@ show_prompts() {
         Wand Installation Script
     '
 
-    read -rsp "Enter password: " dbpass; echo
-    if [[ -z $dbpass ]]; then
-        dbpass=$(openssl rand -base64 12)
-        echo "$dbpass"
-        echo
+    if [[ -d .data && -f .env ]]; then
+        dbpass=$(grep 'POSTGRES_PASSWORD=' .env | cut -d= -f2 | xargs)
+        echo "Existing database found. Using existing password."
+    else
+        read -rsp "Enter password: " dbpass; echo
+        if [[ -z $dbpass ]]; then
+            dbpass=$(openssl rand -base64 12)
+            echo "$dbpass"
+            echo
+        fi
     fi
 
     read -rp "Enter hostname: " hostname
@@ -213,12 +116,112 @@ show_prompts() {
         echo
     fi
 
-    read -rp "Run the game? (y/N): " run_game
+    write_dotenv() {
+        /bin/cat > .env <<- SHELL
+            ###################################################################################################
+            # DATABASE (PostgreSQL)
+            # https://github.com/solero/wand/blob/master/docker-compose.yml
+            # https://github.com/solero/houdini/blob/master/bootstrap.py
+            ###################################################################################################
+
+            POSTGRES_USER=postgres
+            POSTGRES_PASSWORD=$dbpass
+            REDIS_PASSWORD=redis
+
+            ####################################################################################################
+            # WEB (Nginx)
+            # https://github.com/jwilder/dockerize#using-templates
+            # https://github.com/solero/wand/blob/master/templates/sites/vanilla.conf.template
+            # https://github.com/solero/wand/blob/master/templates/vanilla-media/play/index.html.template
+            ####################################################################################################
+
+            WEB_PORT=80
+            HTTPS_PORT=443
+
+            WEB_HOSTNAME=$hostname
+
+            WEB_VANILLA_PLAY=http://play.$hostname
+            WEB_VANILLA_MEDIA=http://media.$hostname
+
+            WEB_LEGACY_PLAY=http://old.$hostname
+            WEB_LEGACY_MEDIA=http://legacy.$hostname
+
+            ###################################################################################################
+            # RUFFLE (cdn | self-hosted)
+            # https://github.com/ruffle-rs/ruffle/tree/master/
+            # https://github.com/Walainski/wand/blob/main/templates/vanilla-media/play/index.html.template
+            ###################################################################################################
+
+            RUFFLE_MODE=cdn
+            RUFFLE_LOG_LEVEL=info
+
+            ###################################################################################################
+            # Google reCAPTCHA
+            # https://developers.google.com/recaptcha/
+            # https://github.com/solero/dash/blob/master/config.sample.py
+            ###################################################################################################
+
+            WEB_RECAPTCHA_SITE=
+            WEB_RECAPTCHA_SECRET=
+
+            ###################################################################################################
+            # EMAIL/ACTIVATION
+            # https://github.com/solero/dash/blob/master/config.sample.py
+            ###################################################################################################
+
+            EMAIL_METHOD= # SENDGRID or SMTP or empty (auto-activate accounts)
+            EMAIL_FROM_ADDRESS=no-reply@example.com
+            EMAIL_SENDGRID_KEY=
+            EMAIL_SMTP_HOST=
+            EMAIL_SMTP_PORT=
+            EMAIL_SMTP_USER=
+            EMAIL_SMTP_PASS=
+            EMAIL_SMTP_SSL=FALSE
+
+            ###################################################################################################
+            # GAME SERVER
+            # https://github.com/solero/houdini/blob/master/bootstrap.py
+            # https://github.com/Lekuruu/houdini-websockets
+            ###################################################################################################
+
+            GAME_ADDRESS=$ipadd
+            GAME_LOGIN_PORT=6112
+            GAME_LOGIN_WEBSOCKET=7112
+            SERVER_LOG_LEVEL=INFO
+
+            ###################################################################################################
+            # TLS/HTTPS
+            # https://github.com/Lekuruu/houdini-websockets/blob/main/__init__.py
+            # https://github.com/Walainski/wand/blob/main/templates/vanilla-media/play/index.html.template
+            # https://github.com/Lekuruu/snowflake/blob/main/.env_example
+            ###################################################################################################
+
+            TLS_ENABLED=False
+            SSL_KEYS_DIR=/etc/nginx/ssl
+            KEY_FILE_PEM=
+            CERT_FILE_PEM=
+
+            ###################################################################################################
+            # SNOWFLAKE (CJSnow)
+            # https://github.com/Lekuruu/snowflake/blob/main/.env_example
+            ###################################################################################################
+
+            SNOWFLAKE_LOGGING_ENABLED=False
+            SNOWFLAKE_HOST=$ipadd
+            SNOWFLAKE_PORT=7002
+            SNOWFLAKE_WS_PORT=8002
+            APPLY_WINDOWMANAGER_OFFSET=True
+            ALLOW_FORCESTART_SNOW=False
+            ALLOW_FORCESTART_TUSK=False
+            MATCHMAKING_TIMEOUT=30
+SHELL
+    }
+    write_dotenv
+
+    read -rp "Run the game? (Y/n): " run_game
     if [[ "$run_game" =~ ^[Yy]$ ]]; then
         sudo docker compose up
     fi
 }
 show_prompts
-
-
 
