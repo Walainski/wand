@@ -3,22 +3,28 @@
 Wand makes it easy to configure dash, houdini and a media server utilizing docker & docker-compose.
 
 > [!NOTE]
-> This can also be ran on Windows using WSL.
+> This also runs on Windows using Windows Subsystem for Linux (WSL).
 
-## Installation script
-**Step 1** run the script
+### GitDelivr (Optional): 
+
+You can optionally speed up the vanilla-media download ~4x by configuring Git to use Gitdelivr. 
+Gitdelivr speeds up subsequent download speeds using Cloudflare edge locations.
+Branch updates then propagate to the cache within about 60 seconds of push/commits.
+This is an all-or-nothing decision. If it fails, the installer will use the standard Gitea clone instead.
+https://github.com/arnoo/git-deliver/
+
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/solero/wand/master/install.sh)
+git clone https://gitdelivr.net/gitea.com/Walainski/vanilla-media.git
 ```
-**Step 2** Answer Questions which are:
-* Database password (Leave blank for random password)
-* Hostname (example: `clubpenguin.com`) (Leave empty for localhost)
-* External IP Address (Leave empty for localhost)
-**Step 3** Run and enjoy.
-Run this command:
+
+## Installation:
+
+Run the installation script:
+
 ```bash
-$ cd wand && sudo docker-compose up
+sudo bash install.sh
 ```
+
 ## Manual setup
 
 > [!IMPORTANT]

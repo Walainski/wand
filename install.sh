@@ -70,8 +70,8 @@ get_package_dependencies() {
 get_package_dependencies
 
 initialize_submodules() {
-    # Traverse submodules // recursively update URLs in '.git/config' 
-    # with '.gitmodules' // then initialize missing submodules //
+    # Traverse nested submodules // recursively update URLs in '.git/config' 
+    # to match '.gitmodules' // then initialize missing submodules with clone //
     echo "Downloading game files..."
     git submodule sync --recursive && \
     git submodule update --init --recursive && \

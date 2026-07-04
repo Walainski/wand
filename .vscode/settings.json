@@ -4,5 +4,13 @@
         "*.conf.template": "nginx",
         "*.xml.template": "xml",
         "*.py.template": "python",
+    },
+    "files.exclude": {
+        "**/.git": false,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "redis.conf": true,
     }
 }

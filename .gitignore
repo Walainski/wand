@@ -11,8 +11,6 @@
 /.data/
 
 # MEDIA
-/vanilla-media/
-/legacy-media/
 /parts/
 *.tar.gz.enc
 /www/
